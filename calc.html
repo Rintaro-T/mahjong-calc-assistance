@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>麻雀 点数計算</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      /* デスクトップ Firefox などでのプルダウン表示を安定させるため dark のみを宣言 */
+      color-scheme: dark;
+      --bg: #0f172a;
+      --bg-elevated: #1e293b;
+      --bg-soft: #020617;
+      --border: #334155;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.15);
+      --accent-strong: #0ea5e9;
+      --text: #e5e7eb;
+      --text-soft: #9ca3af;
+      --danger: #f97373;
+      --radius-lg: 14px;
+      --radius-md: 10px;
+      --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.7);
+      --shadow-subtle: 0 1px 0 rgba(148, 163, 184, 0.35);
+      --gap: 16px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+        sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at top left, #1e293b 0, #020617 55%, #000 100%);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 960px;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.96));
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      padding: 22px 22px 20px;
+      backdrop-filter: blur(18px);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .title-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.4rem;
+      letter-spacing: 0.08em;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .badge {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      color: var(--text-soft);
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+    }
+
+    .role-toggle {
+      display: inline-flex;
+      align-items: center;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.22), transparent 55%),
+                  rgba(15, 23, 42, 0.95);
+      border-radius: 999px;
+      padding: 3px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.7);
+    }
+
+    .role-option {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--text-soft);
+      cursor: pointer;
+      transition: color 0.18s ease, background 0.18s ease, transform 0.08s ease;
+    }
+
+    .role-option input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .role-option span.label {
+      position: relative;
+      z-index: 1;
+      white-space: nowrap;
+    }
+
+    .role-option .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9);
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .role-option input:checked + .dot {
+      background: radial-gradient(circle at 30% 20%, #facc15, #f97316 60%, #b45309 100%);
+      border-color: rgba(252, 211, 77, 0.8);
+      box-shadow:
+        0 0 10px rgba(251, 191, 36, 0.8),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+
+    .role-option input:checked ~ span.label {
+      color: #facc15;
+      font-weight: 600;
+    }
+
+    .role-option::before {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: inherit;
+      background: radial-gradient(circle at top, rgba(251, 191, 36, 0.35), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.18s ease;
+      z-index: 0;
+    }
+
+    .role-option input:checked ~ span.label + .hint,
+    .role-option .hint {
+      display: none;
+    }
+
+    .role-option input:checked ~ span.label::after {
+      content: "";
+    }
+
+    .role-option input:checked ~ .hint {
+      display: inline-flex;
+    }
+
+    .role-option input:checked ~ span.label,
+    .role-option input:checked ~ .hint {
+      position: relative;
+      z-index: 1;
+    }
+
+    .role-option input:checked ~ span.label::before {
+      content: "";
+    }
+
+    .role-option.checked::before,
+    .role-option input:checked ~ * + * + * {
+      opacity: 1;
+    }
+
+    .role-option:hover {
+      transform: translateY(-0.5px);
+    }
+
+    .role-option:hover span.label:not(.active) {
+      color: #e5e7eb;
+    }
+
+    .role-option .hint {
+      font-size: 0.7rem;
+      color: rgba(148, 163, 184, 0.9);
+      padding: 0 3px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 18px;
+    }
+
+    @media (max-width: 800px) {
+      body {
+        padding: 16px;
+      }
+      .app {
+        padding: 18px 16px 16px;
+      }
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    .panel {
+      background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.18), transparent 55%),
+                  linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(15, 23, 42, 0.98));
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(30, 64, 175, 0.65);
+      box-shadow: var(--shadow-subtle);
+      padding: 14px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.4), transparent 60%),
+        radial-gradient(circle at 100% 100%, rgba(59, 130, 246, 0.2), transparent 50%);
+      opacity: 0.16;
+      pointer-events: none;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+    }
+
+    .panel-caption {
+      font-size: 0.72rem;
+      color: var(--text-soft);
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 14px;
+      position: relative;
+      z-index: 1;
+    }
+
+    @media (max-width: 640px) {
+      .fields {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .field-label {
+      font-size: 0.75rem;
+      color: var(--text-soft);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .field-label span.main {
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .field-label span.sub {
+      font-size: 0.7rem;
+      color: rgba(148, 163, 184, 0.95);
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95), rgba(15, 23, 42, 0.98));
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease,
+        transform 0.08s ease;
+      appearance: none;
+      background-image: linear-gradient(45deg, transparent 50%, #38bdf8 50%),
+                        linear-gradient(135deg, #38bdf8 50%, transparent 50%);
+      background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
+
+    /* Firefox などでプルダウンリストが白背景になる場合の対策 */
+    select option,
+    select optgroup {
+      background-color: #020617;
+      color: #e5e7eb;
+    }
+
+    select:focus {
+      border-color: var(--accent);
+      box-shadow:
+        0 0 0 1px rgba(15, 23, 42, 0.9),
+        0 0 0 2px rgba(56, 189, 248, 0.6);
+      transform: translateY(-0.5px);
+    }
+
+    select:hover {
+      border-color: rgba(148, 163, 184, 0.9);
+    }
+
+    .note {
+      font-size: 0.7rem;
+      color: var(--text-soft);
+      margin-top: 2px;
+    }
+
+    .results {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .results-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 640px) {
+      .results-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .result-card {
+      border-radius: var(--radius-lg);
+      padding: 10px 12px;
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 55%),
+                  linear-gradient(135deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.97));
+      position: relative;
+      overflow: hidden;
+    }
+
+    .result-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 0 -20%, rgba(56, 189, 248, 0.25), transparent 60%);
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .result-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+
+    .result-label {
+      font-size: 0.78rem;
+      letter-spacing: 0.13em;
+      text-transform: uppercase;
+      color: rgba(148, 163, 184, 0.98);
+    }
+
+    .result-caption {
+      font-size: 0.7rem;
+      color: var(--text-soft);
+    }
+
+    .result-main {
+      font-size: 1.2rem;
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      color: #e5e7eb;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .result-main .unit {
+      font-size: 0.8rem;
+      color: rgba(148, 163, 184, 0.95);
+    }
+
+    .result-sub {
+      font-size: 0.78rem;
+      color: rgba(148, 163, 184, 0.98);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* ツモ結果：支払い表示をやや小さめに */
+    .result-main--tsumo {
+      font-size: 1.2rem; /* ロンと同じサイズに揃える */
+    }
+
+    .result-sub--tsumo {
+      font-size: 0.75rem;
+    }
+
+    .result-sub span.label,
+    .result-main span.label {
+      font-size: 0.8rem;
+      color: rgba(148, 163, 184, 0.9);
+    }
+
+    .result-sub span.value,
+    .result-main span.value {
+      color: #e5e7eb;
+    }
+
+    .result-empty {
+      font-size: 0.82rem;
+      color: var(--danger);
+    }
+
+    .result-rank {
+      color: #f97373;
+      font-size: 0.85em;
+      font-weight: 500;
+    }
+
+    /* 役一覧 / 符計算ボタン & モーダル */
+    .yaku-button,
+    .fu-button {
+      margin-left: 10px;
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.15), transparent 60%),
+                  rgba(15, 23, 42, 0.95);
+      color: #e5e7eb;
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.16s ease, border-color 0.16s ease, transform 0.08s ease,
+        box-shadow 0.16s ease;
+    }
+
+    .yaku-button:hover,
+    .fu-button:hover {
+      border-color: var(--accent-strong);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9),
+                  0 0 12px rgba(56, 189, 248, 0.7);
+      transform: translateY(-0.5px);
+    }
+
+    .yaku-button:active,
+    .fu-button:active {
+      transform: translateY(0);
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9),
+                  0 0 6px rgba(56, 189, 248, 0.6);
+    }
+
+    .yaku-button-icon {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      display: inline-block;
+      box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.9);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 1), rgba(30, 64, 175, 0.9));
+      position: relative;
+    }
+
+    .yaku-button-icon::before,
+    .yaku-button-icon::after {
+      content: "";
+      position: absolute;
+      left: 2px;
+      right: 2px;
+      height: 1px;
+      background: rgba(148, 163, 184, 0.9);
+    }
+
+    .yaku-button-icon::before {
+      top: 4px;
+    }
+
+    .yaku-button-icon::after {
+      bottom: 3px;
+      opacity: 0.8;
+    }
+
+    .yaku-modal-backdrop,
+    .fu-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, rgba(56, 189, 248, 0.25), transparent 55%),
+                  rgba(15, 23, 42, 0.9);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 40;
+    }
+
+    .yaku-modal-backdrop.is-open,
+    .fu-modal-backdrop.is-open {
+      display: flex;
+    }
+
+    .yaku-modal,
+    .fu-modal {
+      width: 100%;
+      max-width: 640px;
+      max-height: 80vh;
+      background: radial-gradient(circle at top left, rgba(148, 163, 184, 0.15), transparent 55%),
+                  rgba(15, 23, 42, 0.98);
+      border-radius: 18px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.9);
+      padding: 14px 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .yaku-modal-header,
+    .fu-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+
+    .yaku-modal-title,
+    .fu-modal-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #e5e7eb;
+    }
+
+    .yaku-modal-subtitle,
+    .fu-modal-subtitle {
+      font-size: 0.7rem;
+      color: var(--text-soft);
+      margin-top: 2px;
+    }
+
+    .yaku-modal-close,
+    .fu-modal-close {
+      border: none;
+      background: transparent;
+      color: var(--text-soft);
+      font-size: 0.9rem;
+      cursor: pointer;
+      padding: 4px 6px;
+      border-radius: 999px;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .yaku-modal-close:hover,
+    .fu-modal-close:hover {
+      background: rgba(30, 64, 175, 0.7);
+      color: #e5e7eb;
+    }
+
+    .yaku-modal-body,
+    .fu-modal-body {
+      flex: 1;
+      overflow: auto;
+      padding: 6px 2px 2px;
+    }
+
+    .yaku-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    .yaku-table thead {
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.98);
+      z-index: 1;
+    }
+
+    .yaku-table th,
+    .yaku-table td {
+      padding: 4px 6px;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.9);
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    .yaku-table th {
+      font-weight: 600;
+      font-size: 0.78rem;
+      color: rgba(191, 219, 254, 0.95);
+    }
+
+    .yaku-table td {
+      font-size: 0.78rem;
+      color: #e5e7eb;
+    }
+
+    .yaku-table tbody tr:nth-child(2n) td {
+      background: rgba(15, 23, 42, 0.9);
+    }
+
+    .yaku-table-rank-yakuman {
+      color: #f97373;
+      font-weight: 600;
+    }
+
+    .yaku-table small {
+      font-size: 0.7rem;
+      color: var(--text-soft);
+    }
+
+    .footer-note {
+      margin-top: 6px;
+      font-size: 0.7rem;
+      color: rgba(148, 163, 184, 0.9);
+      line-height: 1.5;
+    }
+
+    .footer-note code {
+      font-size: 0.7rem;
+      padding: 1px 4px;
+      border-radius: 4px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="title-block">
+        <h3>
+          🀇点数計算🀏
+          <button type="button" class="yaku-button" id="yaku-button">
+            <span class="yaku-button-icon" aria-hidden="true"></span>
+            役一覧
+          </button>
+          <button type="button" class="fu-button" id="fu-button">
+            <span class="yaku-button-icon" aria-hidden="true"></span>
+            符計算方法
+          </button>
+        </h3>
+        <p class="subtitle">
+          符・翻と自分の立場（親 / 子）を選ぶと、ロン / ツモの点数が自動で表示されます。
+        </p>
+      </div>
+      <div class="role-toggle" aria-label="自分の立場を選択">
+        <label class="role-option">
+          <input type="radio" name="role" value="parent" id="role-parent" checked />
+          <span class="dot"></span>
+          <span class="label">自分は親</span>
+          <span class="hint">他は全員子</span>
+        </label>
+        <label class="role-option">
+          <input type="radio" name="role" value="child" id="role-child" />
+          <span class="dot"></span>
+          <span class="label">自分は子</span>
+          <span class="hint">親1人 + 子2人</span>
+        </label>
+      </div>
+    </header>
+
+    <div class="yaku-modal-backdrop" id="yaku-modal" aria-hidden="true">
+      <div class="yaku-modal" role="dialog" aria-modal="true" aria-labelledby="yaku-modal-title">
+        <div class="yaku-modal-header">
+          <div>
+            <div class="yaku-modal-title" id="yaku-modal-title">YAKU LIST</div>
+            <div class="yaku-modal-subtitle">役名 / 面前翻数 / 鳴き翻数（一般的なルールを想定）</div>
+          </div>
+          <button type="button" class="yaku-modal-close" id="yaku-modal-close" aria-label="役一覧を閉じる">
+            ✕
+          </button>
+        </div>
+        <div class="yaku-modal-body">
+          <table class="yaku-table">
+            <thead>
+              <tr>
+                <th>役名</th>
+                <th>面前</th>
+                <th>鳴き</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>立直</td><td>1 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>一発</td><td>1 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>門前清自摸和</td><td>1 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>役牌</td><td>1 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>断幺九</td><td>1 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>平和</td><td>1 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>海底摸月</td><td>1 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>河底撈魚</td><td>1 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>嶺上開花</td><td>1 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>槍槓</td><td>1 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>三色同順</td><td>2 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>一気通貫</td><td>2 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>ダブル立直</td><td>2 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>混一色</td><td>3 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>清一色</td><td>6 翻</td><td>5 翻</td>
+              </tr>
+              <tr>
+                <td>七対子</td><td>2 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>対々和</td><td>2 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>一盃口</td><td>1 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>二盃口</td><td>3 翻</td><td>×</td>
+              </tr>
+              <tr>
+                <td>混全帯幺九</td><td>2 翻</td><td>1 翻</td>
+              </tr>
+              <tr>
+                <td>純全帯幺九</td><td>3 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>三暗刻</td><td>2 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>小三元</td><td>2 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>三色同刻</td><td>2 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>混老頭</td><td>2 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td>三槓子</td><td>2 翻</td><td>2 翻</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">国士無双</td><td class="yaku-table-rank-yakuman">役満</td><td>×</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">四暗刻</td><td class="yaku-table-rank-yakuman">役満</td><td>×</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">大三元</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">小四喜</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">大四喜</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">九蓮宝燈</td><td class="yaku-table-rank-yakuman">役満</td><td>×</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">緑一色</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">字一色</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">清老頭</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">天和</td><td class="yaku-table-rank-yakuman">役満</td><td>×</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">地和</td><td class="yaku-table-rank-yakuman">役満</td><td>×</td>
+              </tr>
+              <tr>
+                <td class="yaku-table-rank-yakuman">四槓子</td><td class="yaku-table-rank-yakuman">役満</td><td class="yaku-table-rank-yakuman">役満</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="yaku-modal-subtitle">
+            ※ルールや場によって細部が異なる場合があります。ここでは一般的なルールを想定しています。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="fu-modal-backdrop" id="fu-modal" aria-hidden="true">
+      <div class="fu-modal" role="dialog" aria-modal="true" aria-labelledby="fu-modal-title">
+        <div class="fu-modal-header">
+          <div>
+            <div class="fu-modal-title" id="fu-modal-title">FU CALC</div>
+            <div class="fu-modal-subtitle">符計算の内訳（一般的なルールを想定）</div>
+          </div>
+          <button type="button" class="fu-modal-close" id="fu-modal-close" aria-label="符計算方法を閉じる">
+            ✕
+          </button>
+        </div>
+        <div class="fu-modal-body">
+          <table class="yaku-table">
+            <tbody>
+              <tr>
+                <th colspan="3">副底</th>
+              </tr>
+              <tr>
+                <td colspan="3">20 符</td>
+              </tr>
+              <tr>
+                <th colspan="3">上がり方</th>
+              </tr>
+              <tr>
+                <td>自摸</td><td>面前ロン</td><td>鳴きロン</td>
+              </tr>
+              <tr>
+                <td>2 符</td><td>10 符</td><td>0 符</td>
+              </tr>
+              <tr>
+                <th colspan="3">面子構成</th>
+              </tr>
+              <tr>
+                <td>面子</td><td>中張牌</td><td>幺九牌</td>
+              </tr>
+              <tr>
+                <td>明刻</td><td>2 符</td><td>4 符</td>
+              </tr>
+              <tr>
+                <td>暗刻</td><td>4 符</td><td>8 符</td>
+              </tr>
+              <tr>
+                <td>明槓</td><td>8 符</td><td>16 符</td>
+              </tr>
+              <tr>
+                <td>暗槓</td><td>16 符</td><td>32 符</td>
+              </tr>
+              <tr>
+                <th colspan="3">雀頭</th>
+              </tr>
+              <tr>
+                <td>数牌・オタ風</td><td>翻牌</td><td>連風牌</td>
+              </tr>
+              <tr>
+                <td>0 符</td><td>2 符</td><td>4 符</td>
+              </tr>
+              <tr>
+                <td colspan="3"><small>※連風牌は 2 符計算の場合もあるので確認</small></td>
+              </tr>
+              <tr>
+                <th colspan="3">待ち</th>
+              </tr>
+              <tr>
+                <td>両面・双碰</td><td colspan="2">単騎（ノベタン含む）・辺張・嵌張</td>
+              </tr>
+              <tr>
+                <td>0 符</td><td colspan="2">2 符</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="fu-modal-subtitle">
+            ※ピンフツモは20符、七対子は25符固定です。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <section class="panel" aria-label="条件の指定">
+        <div class="panel-header">
+          <div class="panel-title">Conditions</div>
+          <div class="panel-caption">翻数と符数を選択してください</div>
+        </div>
+        <div class="fields">
+          <div class="field">
+            <div class="field-label">
+              <span class="main">翻数</span>
+              <span class="sub">1〜13翻以上</span>
+            </div>
+            <select id="han-select">
+              <option value="1">1 翻</option>
+              <option value="2">2 翻</option>
+              <option value="3">3 翻</option>
+              <option value="4">4 翻</option>
+              <option value="5">5 翻</option>
+              <option value="6">6 翻</option>
+              <option value="7">7 翻</option>
+              <option value="8">8 翻</option>
+              <option value="9">9 翻</option>
+              <option value="10">10 翻</option>
+              <option value="11">11 翻</option>
+              <option value="12">12 翻</option>
+              <option value="13">13 翻以上</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <div class="field-label">
+              <span class="main">符数</span>
+              <span class="sub">20, 25, 30〜110 符</span>
+            </div>
+            <select id="fu-select">
+              <option value="20">20 符</option>
+              <option value="25">25 符</option>
+              <option value="30">30 符</option>
+              <option value="40">40 符</option>
+              <option value="50">50 符</option>
+              <option value="60">60 符</option>
+              <option value="70">70 符</option>
+              <option value="80">80 符</option>
+              <option value="90">90 符</option>
+              <option value="100">100 符</option>
+              <option value="110">110 符</option>
+            </select>
+          </div>
+        </div>
+        <p class="note">
+          1〜4翻は符数で点数が決まります。5翻以上（満貫・跳満・倍満・三倍満・役満）は符に関係なく固定点です。存在しない組み合わせは「該当なし」と表示されます。
+        </p>
+      </section>
+
+      <section class="panel" aria-label="計算結果">
+        <div class="panel-header">
+          <div class="panel-title">Result</div>
+          <div class="panel-caption">ロン / ツモの点数</div>
+        </div>
+        <div class="results">
+          <div class="results-grid">
+            <article class="result-card" aria-live="polite">
+              <div class="result-header">
+                <div class="result-label">Ron</div>
+                <div class="result-caption">ロンあがり（合計点）</div>
+              </div>
+              <div id="ron-main" class="result-main">
+                <span class="value">-</span>
+                <span class="unit">点</span>
+              </div>
+              <div id="ron-sub" class="result-sub">
+                <span class="result-empty">条件を選択すると自動で表示されます。</span>
+              </div>
+            </article>
+
+            <article class="result-card" aria-live="polite">
+              <div class="result-header">
+                <div class="result-label">Tsumo</div>
+                <div class="result-caption">ツモあがりの支払い</div>
+              </div>
+              <div id="tsumo-main" class="result-main result-main--tsumo">
+                <span class="value">-</span>
+                <span class="unit">点</span>
+              </div>
+              <div id="tsumo-sub" class="result-sub result-sub--tsumo">
+                <span class="result-empty">条件を選択すると自動で表示されます。</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <script>
+    // child: 子どもがあがり / parent: 親があがり
+    // ron: ロンの合計点
+    // tsumo.child: 子の支払い, tsumo.parent: 親の支払い
+    // tsumo.all: 親がツモあがりしたときの「子オール」の点
+    const SCORE_TABLE = {
+      child: {
+        20: {
+          1: { ron: null, tsumo: { child: null, parent: null } }, // ピンフツモのみ（一般化しない）
+          2: { ron: null, tsumo: { child: 400, parent: 700 } },
+          3: { ron: null, tsumo: { child: 700, parent: 1300 } },
+          4: { ron: null, tsumo: { child: 1300, parent: 2600 } }
+        },
+        25: {
+          1: { ron: null, tsumo: { child: null, parent: null } }, // チートイツ専用扱いで一般化しない
+          2: { ron: 1600, tsumo: { child: null, parent: null } },
+          3: { ron: 3200, tsumo: { child: 800, parent: 1600 } },
+          4: { ron: 6400, tsumo: { child: 1600, parent: 3200 } }
+        },
+        30: {
+          1: { ron: 1000, tsumo: { child: 300, parent: 500 } },
+          2: { ron: 2000, tsumo: { child: 500, parent: 1000 } },
+          3: { ron: 3900, tsumo: { child: 1000, parent: 2000 } },
+          4: { ron: 7700, tsumo: { child: 2000, parent: 3900 } }
+        },
+        40: {
+          1: { ron: 1300, tsumo: { child: 400, parent: 700 } },
+          2: { ron: 2600, tsumo: { child: 700, parent: 1300 } },
+          3: { ron: 5200, tsumo: { child: 1300, parent: 2600 } },
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        50: {
+          1: { ron: 1600, tsumo: { child: 400, parent: 800 } },
+          2: { ron: 3200, tsumo: { child: 800, parent: 1600 } },
+          3: { ron: 6400, tsumo: { child: 1600, parent: 3200 } },
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        60: {
+          1: { ron: 2000, tsumo: { child: 500, parent: 1000 } },
+          2: { ron: 3900, tsumo: { child: 1000, parent: 2000 } },
+          3: { ron: 7700, tsumo: { child: 2000, parent: 3900 } },
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        70: {
+          1: { ron: 2300, tsumo: { child: 600, parent: 1200 } },
+          2: { ron: 4500, tsumo: { child: 1200, parent: 2300 } },
+          3: { ron: 8000, tsumo: { child: 2000, parent: 4000 } }, // 満貫
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        80: {
+          1: { ron: 2600, tsumo: { child: 700, parent: 1300 } },
+          2: { ron: 5200, tsumo: { child: 1300, parent: 2600 } },
+          3: { ron: 8000, tsumo: { child: 2000, parent: 4000 } }, // 満貫
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        90: {
+          1: { ron: 2900, tsumo: { child: 800, parent: 1500 } },
+          2: { ron: 5800, tsumo: { child: 1500, parent: 2900 } },
+          3: { ron: 8000, tsumo: { child: 2000, parent: 4000 } }, // 満貫
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        100: {
+          1: { ron: 3200, tsumo: { child: 800, parent: 1600 } },
+          2: { ron: 6400, tsumo: { child: 1600, parent: 3200 } },
+          3: { ron: 8000, tsumo: { child: 2000, parent: 4000 } }, // 満貫
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        },
+        110: {
+          1: { ron: 3600, tsumo: { child: 900, parent: 1800 } },
+          2: { ron: 7100, tsumo: { child: 1800, parent: 3600 } },
+          3: { ron: 8000, tsumo: { child: 2000, parent: 4000 } }, // 満貫
+          4: { ron: 8000, tsumo: { child: 2000, parent: 4000 } } // 満貫
+        }
+      },
+      parent: {
+        20: {
+          1: { ron: null, tsumo: { all: null } }, // ピンフツモのみ（一般化しない）
+          2: { ron: null, tsumo: { all: 700 } },
+          3: { ron: null, tsumo: { all: 1300 } },
+          4: { ron: null, tsumo: { all: 2600 } }
+        },
+        25: {
+          1: { ron: null, tsumo: { all: null } }, // チートイツ専用扱いで一般化しない
+          2: { ron: 2400, tsumo: { all: null } },
+          3: { ron: 4800, tsumo: { all: 1600 } },
+          4: { ron: 9600, tsumo: { all: 3200 } }
+        },
+        30: {
+          1: { ron: 1500, tsumo: { all: 500 } },
+          2: { ron: 2900, tsumo: { all: 1000 } },
+          3: { ron: 5800, tsumo: { all: 2000 } },
+          4: { ron: 11600, tsumo: { all: 3900 } }
+        },
+        40: {
+          1: { ron: 2000, tsumo: { all: 700 } },
+          2: { ron: 3900, tsumo: { all: 1300 } },
+          3: { ron: 7700, tsumo: { all: 2600 } },
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        50: {
+          1: { ron: 2400, tsumo: { all: 800 } },
+          2: { ron: 4800, tsumo: { all: 1600 } },
+          3: { ron: 9600, tsumo: { all: 3200 } },
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        60: {
+          1: { ron: 2900, tsumo: { all: 1000 } },
+          2: { ron: 5800, tsumo: { all: 2000 } },
+          3: { ron: 11600, tsumo: { all: 3900 } },
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        70: {
+          1: { ron: 3400, tsumo: { all: 1200 } },
+          2: { ron: 6800, tsumo: { all: 2300 } },
+          3: { ron: 12000, tsumo: { all: 4000 } }, // 満貫
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        80: {
+          1: { ron: 3900, tsumo: { all: 1300 } },
+          2: { ron: 7700, tsumo: { all: 2600 } },
+          3: { ron: 12000, tsumo: { all: 4000 } }, // 満貫
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        90: {
+          1: { ron: 4400, tsumo: { all: 1500 } },
+          2: { ron: 8700, tsumo: { all: 2900 } },
+          3: { ron: 12000, tsumo: { all: 4000 } }, // 満貫
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        100: {
+          1: { ron: 4800, tsumo: { all: 1600 } },
+          2: { ron: 9600, tsumo: { all: 3200 } },
+          3: { ron: 12000, tsumo: { all: 4000 } }, // 満貫
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        },
+        110: {
+          1: { ron: 5300, tsumo: { all: 1800 } },
+          2: { ron: 10600, tsumo: { all: 3600 } },
+          3: { ron: 12000, tsumo: { all: 4000 } }, // 満貫
+          4: { ron: 12000, tsumo: { all: 4000 } } // 満貫
+        }
+      }
+    };
+
+    // 満貫以上（mangan.md 準拠）：符に関係なく固定点
+    const MANGAN_TABLE = {
+      mangan: {   // 5翻
+        child: { ron: 8000, tsumo: { child: 2000, parent: 4000 } },
+        parent: { ron: 12000, tsumo: { all: 4000 } }
+      },
+      haneman: {  // 6・7翻（跳満）
+        child: { ron: 12000, tsumo: { child: 3000, parent: 6000 } },
+        parent: { ron: 18000, tsumo: { all: 6000 } }
+      },
+      baiman: {   // 8〜10翻（倍満）
+        child: { ron: 16000, tsumo: { child: 4000, parent: 8000 } },
+        parent: { ron: 24000, tsumo: { all: 8000 } }
+      },
+      sanbaiman: { // 11・12翻（三倍満）
+        child: { ron: 24000, tsumo: { child: 6000, parent: 12000 } },
+        parent: { ron: 36000, tsumo: { all: 12000 } }
+      },
+      yakuman: {  // 13翻以上（数え役満）
+        child: { ron: 32000, tsumo: { child: 8000, parent: 16000 } },
+        parent: { ron: 48000, tsumo: { all: 16000 } }
+      }
+    };
+
+    function getManganRank(han) {
+      if (han <= 4) return null;
+      if (han === 5) return "mangan";
+      if (han === 6 || han === 7) return "haneman";
+      if (han >= 8 && han <= 10) return "baiman";
+      if (han === 11 || han === 12) return "sanbaiman";
+      return "yakuman"; // 13+
+    }
+
+    const MANGAN_RANK_LABEL = {
+      mangan: "満貫",
+      haneman: "跳満",
+      baiman: "倍満",
+      sanbaiman: "三倍満",
+      yakuman: "役満"
+    };
+
+    // 実際の点数が満貫〜役満のどれに該当するかを返す（1〜4翻で満貫に達した場合も拾う）
+    function getRankByPoints(entry, role) {
+      if (!entry) return null;
+      if (role === "child") {
+        if (entry.ron === 8000) return "mangan";
+        if (entry.ron === 12000) return "haneman";
+        if (entry.ron === 16000) return "baiman";
+        if (entry.ron === 24000) return "sanbaiman";
+        if (entry.ron === 32000) return "yakuman";
+        if (entry.tsumo && entry.tsumo.child !== undefined && entry.tsumo.parent !== undefined) {
+          if (entry.tsumo.child === 2000 && entry.tsumo.parent === 4000) return "mangan";
+          if (entry.tsumo.child === 3000 && entry.tsumo.parent === 6000) return "haneman";
+          if (entry.tsumo.child === 4000 && entry.tsumo.parent === 8000) return "baiman";
+          if (entry.tsumo.child === 6000 && entry.tsumo.parent === 12000) return "sanbaiman";
+          if (entry.tsumo.child === 8000 && entry.tsumo.parent === 16000) return "yakuman";
+        }
+      } else {
+        if (entry.ron === 12000) return "mangan";
+        if (entry.ron === 18000) return "haneman";
+        if (entry.ron === 24000) return "baiman";
+        if (entry.ron === 36000) return "sanbaiman";
+        if (entry.ron === 48000) return "yakuman";
+        if (entry.tsumo && entry.tsumo.all !== undefined) {
+          if (entry.tsumo.all === 4000) return "mangan";
+          if (entry.tsumo.all === 6000) return "haneman";
+          if (entry.tsumo.all === 8000) return "baiman";
+          if (entry.tsumo.all === 12000) return "sanbaiman";
+          if (entry.tsumo.all === 16000) return "yakuman";
+        }
+      }
+      return null;
+    }
+
+    function formatNumber(num) {
+      if (num == null) return "-";
+      return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    function updateResults() {
+      const roleEl = document.querySelector('input[name="role"]:checked');
+      const hanEl = document.getElementById("han-select");
+      const fuEl = document.getElementById("fu-select");
+      const ronMainEl = document.getElementById("ron-main");
+      const ronSubEl = document.getElementById("ron-sub");
+      const tsumoMainEl = document.getElementById("tsumo-main");
+      const tsumoSubEl = document.getElementById("tsumo-sub");
+
+      if (!roleEl || !hanEl || !fuEl) return;
+
+      const role = roleEl.value; // "parent" or "child"
+      const han = Number(hanEl.value);
+      const fu = Number(fuEl.value);
+
+      let entry = null;
+      const manganRank = getManganRank(han);
+      if (manganRank !== null) {
+        entry = MANGAN_TABLE[manganRank][role] || null;
+      } else {
+        const tableByRole = SCORE_TABLE[role] || {};
+        const byFu = tableByRole[fu] || {};
+        entry = byFu[han] || null;
+      }
+
+      if (!entry) {
+        ronMainEl.innerHTML = '<span class="value">-</span><span class="unit">点</span>';
+        ronSubEl.innerHTML = '<span class="result-empty">該当なし</span>';
+        tsumoMainEl.innerHTML = '<span class="value">-</span><span class="unit">点</span>';
+        tsumoSubEl.innerHTML = '<span class="result-empty">該当なし</span>';
+        return;
+      }
+
+      // 表示用ランク：5翻以上なら翻数から、それ以外は点数が満貫〜役満に達していれば点数から判定
+      const displayRank = manganRank !== null ? manganRank : getRankByPoints(entry, role);
+      const rankSuffix = displayRank !== null
+        ? '<span class="result-rank">(' + MANGAN_RANK_LABEL[displayRank] + ')</span>'
+        : '';
+      if (entry.ron == null) {
+        ronMainEl.innerHTML = '<span class="value">-</span><span class="unit">点</span>';
+        ronSubEl.innerHTML =
+          '<span class="result-empty">該当なし</span>';
+      } else {
+        const ronVal = formatNumber(entry.ron);
+        ronMainEl.innerHTML =
+          '<span class="value">' + ronVal + '</span><span class="unit">点</span>' + rankSuffix;
+        ronSubEl.innerHTML =
+          '<span class="label">合計：</span><span class="value">' + ronVal + ' 点</span>';
+      }
+
+      // ツモ
+      if (!entry.tsumo) {
+        tsumoMainEl.innerHTML = '<span class="value">-</span><span class="unit">点</span>';
+        tsumoSubEl.innerHTML =
+          '<span class="result-empty">該当なし</span>';
+        return;
+      }
+
+      if (role === "child") {
+        const child = entry.tsumo.child ?? null;
+        const parent = entry.tsumo.parent ?? null;
+
+        if (child == null || parent == null) {
+          tsumoMainEl.innerHTML = '<span class="value">-</span><span class="unit">点</span>';
+          tsumoSubEl.innerHTML =
+            '<span class="result-empty">該当なし</span>';
+          return;
+        }
+
+        const childStr = formatNumber(child);
+        const parentStr = formatNumber(parent);
+
+        // 子・親の支払いを大きく表示（子 → 親 の順）
+        tsumoMainEl.innerHTML =
+          '<span class="label">子：</span><span class="value">' + childStr +
+          '</span><span class="unit">点</span><span class="label"> / 親：</span><span class="value">' +
+          parentStr + '</span><span class="unit">点</span>' + rankSuffix;
+
+        // 合計は小さめの行に表示
+        const total = parent + child * 2;
+        tsumoSubEl.innerHTML =
+          '<span class="label">合計：</span><span class="value">' + formatNumber(total) +
+          '</span><span class="unit">点</span>';
+      } else {
+        // 親
+        const all = entry.tsumo.all ?? null;
+        if (all == null) {
+          tsumoMainEl.innerHTML = '<span class="value">-</span><span class="unit">点</span>';
+          tsumoSubEl.innerHTML =
+            '<span class="result-empty">該当なし</span>';
+          return;
+        }
+
+        const allStr = formatNumber(all);
+        const total = all * 3;
+
+        // 子の支払い（オール）を大きく表示
+        tsumoMainEl.innerHTML =
+          '<span class="label">子：</span><span class="value">' + allStr +
+          '</span><span class="unit">点オール</span>' + rankSuffix;
+
+        // 合計は小さめの行に表示
+        tsumoSubEl.innerHTML =
+          '<span class="label">合計：</span><span class="value">' + formatNumber(total) +
+          '</span><span class="unit">点</span>';
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", function () {
+      const controls = [
+        'input[name="role"]',
+        '#han-select',
+        '#fu-select'
+      ];
+
+      controls.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((el) => {
+          el.addEventListener("change", updateResults);
+        });
+      });
+
+      // 役一覧 / 符計算モーダル
+      const yakuButton = document.getElementById("yaku-button");
+      const yakuModal = document.getElementById("yaku-modal");
+      const yakuModalClose = document.getElementById("yaku-modal-close");
+      const fuButton = document.getElementById("fu-button");
+      const fuModal = document.getElementById("fu-modal");
+      const fuModalClose = document.getElementById("fu-modal-close");
+
+      function openYakuModal() {
+        if (!yakuModal) return;
+        yakuModal.classList.add("is-open");
+        yakuModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeYakuModal() {
+        if (!yakuModal) return;
+        yakuModal.classList.remove("is-open");
+        yakuModal.setAttribute("aria-hidden", "true");
+      }
+
+      function openFuModal() {
+        if (!fuModal) return;
+        fuModal.classList.add("is-open");
+        fuModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeFuModal() {
+        if (!fuModal) return;
+        fuModal.classList.remove("is-open");
+        fuModal.setAttribute("aria-hidden", "true");
+      }
+
+      if (yakuButton && yakuModal) {
+        yakuButton.addEventListener("click", openYakuModal);
+      }
+
+      if (yakuModalClose) {
+        yakuModalClose.addEventListener("click", closeYakuModal);
+      }
+
+      if (yakuModal) {
+        yakuModal.addEventListener("click", function (event) {
+          if (event.target === yakuModal) {
+            closeYakuModal();
+          }
+        });
+      }
+
+      if (fuButton && fuModal) {
+        fuButton.addEventListener("click", openFuModal);
+      }
+
+      if (fuModalClose) {
+        fuModalClose.addEventListener("click", closeFuModal);
+      }
+
+      if (fuModal) {
+        fuModal.addEventListener("click", function (event) {
+          if (event.target === fuModal) {
+            closeFuModal();
+          }
+        });
+      }
+
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeYakuModal();
+          closeFuModal();
+        }
+      });
+
+      // 初期表示
+      updateResults();
+    });
+  </script>
+</body>
+</html>
+
